@@ -379,7 +379,7 @@ npm run dev
 Open:
 
 ```text
-http://localhost:3000
+https://gbp-manager-six.vercel.app/
 ```
 
 Build the application:

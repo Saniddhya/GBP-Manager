@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   MapPin,
@@ -32,6 +33,8 @@ const SidebarItem = ({ href, icon, label, active }: SidebarItemProps) => (
 );
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -81,7 +84,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={async () => {
               await fetch('/api/auth/logout', { method: 'POST' });
-              window.location.href = '/login';
+              router.replace('/login');
+              router.refresh();
             }}
             className="flex items-center gap-3 px-4 py-3 w-full text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
           >

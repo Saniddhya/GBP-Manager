@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Post from '@/models/Post';
 import Location from '@/models/Location';
@@ -40,11 +40,10 @@ export async function GET() {
       },
       recentPosts,
     }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
+    // The driver message used to be returned in a `details` field, which leaked
+    // collection names and connection hints to the browser.
     console.error('Dashboard API Error:', error);
-    return NextResponse.json({
-      error: 'Internal server error',
-      details: error.message
-    }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

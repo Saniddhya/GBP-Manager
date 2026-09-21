@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import { LoginSchema } from '@/lib/validations';
-import { comparePassword, signToken } from '@/lib/auth';
+import { AUTH_COOKIE_NAME, comparePassword, getAuthCookieOptions, signToken } from '@/lib/auth';
 import { isZodError, zodErrorMessage } from '@/lib/api-errors';
-import { cookies } from 'next/headers';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
+import { invalidJsonResponse, isInvalidJsonBodyError, readJsonBody } from '@/lib/http';
+
+/** 10 attempts per 15 minutes per IP: enough for typos, too slow to spray. */
+const LOGIN_RATE_LIMIT = { limit: 10, windowMs: 15 * 60 * 1000 };
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const limit = rateLimit(`login:${getClientIp(req.headers)}`, LOGIN_RATE_LIMIT);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many login attempts. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+      );
+    }
+
+    const body = await readJsonBody(req);
     const validatedData = LoginSchema.parse(body);
 
     await dbConnect();
@@ -36,13 +49,7 @@ export async function POST(req: NextRequest) {
     const token = await signToken({ userId: user._id.toString() });
 
     const cookieStore = await cookies();
-    cookieStore.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
-    });
+    cookieStore.set(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
 
     return NextResponse.json(
       { message: 'Logged in successfully', user: { name: user.name, email: user.email } },
@@ -50,6 +57,11 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     console.error('Login Error:', error);
+
+    if (isInvalidJsonBodyError(error)) {
+      return invalidJsonResponse();
+    }
+
     if (isZodError(error)) {
       return NextResponse.json(
         { error: zodErrorMessage(error) },

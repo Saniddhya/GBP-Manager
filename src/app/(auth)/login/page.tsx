@@ -1,7 +1,8 @@
 'use client';
 import React, { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,10 +24,12 @@ export default function LoginPage() {
         const data = await res.json();
         throw new Error(data.error || 'Login failed');
       }
-      // Force a full page reload to ensure middleware detects the auth cookie
-      window.location.href = '/dashboard';
-    } catch (e: any) {
-      setError(e.message);
+      // Client side navigation is enough: the API response already stored the
+      // cookie, and `refresh()` re-runs the middleware with it attached.
+      router.replace('/dashboard');
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -75,11 +78,9 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-600">
-          Don't have an account? <Link href="/register" className="text-blue-600 hover:underline">Sign up</Link>
+          Don&apos;t have an account? <Link href="/register" className="text-blue-600 hover:underline">Sign up</Link>
         </div>
       </div>
     </div>
   );
 }
-
-import Link from 'next/link';

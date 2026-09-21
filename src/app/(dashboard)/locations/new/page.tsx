@@ -32,8 +32,8 @@ export default function NewLocationPage() {
       }
       router.push('/locations');
       router.refresh();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create location');
     } finally {
       setLoading(false);
     }

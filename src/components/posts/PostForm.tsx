@@ -1,11 +1,12 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { MOCK_LOCATIONS } from '@/lib/mock-locations';
 import PostPreview from '@/components/posts/PostPreview';
 import { Loader2, Sparkles, Save, Send } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import type { PostFormInitialData } from '@/types/post';
 
-export default function PostForm({ initialData }: { initialData?: any }) {
+export default function PostForm({ initialData }: { initialData?: PostFormInitialData }) {
   const router = useRouter();
   const [formData, setFormData] = useState({
     locationId: initialData?.locationId || '',
@@ -54,8 +55,8 @@ export default function PostForm({ initialData }: { initialData?: any }) {
       if (!res.ok) throw new Error('AI generation failed');
       const data = await res.json();
       setFormData(prev => ({ ...prev, content: data.content }));
-    } catch (e: any) {
-      setError('We couldn\'t generate content right now. You can write or edit the post manually.');
+    } catch {
+      setError("We couldn't generate content right now. You can write or edit the post manually.");
     } finally {
       setIsGenerating(false);
     }
@@ -84,8 +85,8 @@ export default function PostForm({ initialData }: { initialData?: any }) {
 
       router.push('/posts');
       router.refresh();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save post');
     } finally {
       setIsSaving(false);
     }
@@ -95,7 +96,9 @@ export default function PostForm({ initialData }: { initialData?: any }) {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Form Side */}
       <div className="space-y-6 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Create GBP Post</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          {initialData ? 'Edit GBP Post' : 'Create GBP Post'}
+        </h2>
 
         {error && (
           <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">

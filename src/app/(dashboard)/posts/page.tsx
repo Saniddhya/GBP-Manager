@@ -6,10 +6,6 @@ import {
   Plus,
   Edit2,
   Trash2,
-  CheckCircle,
-  Clock,
-  ChevronUp,
-  ChevronDown,
   FileText
 } from 'lucide-react';
 import Link from 'next/link';
@@ -30,29 +26,36 @@ export default function PostsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('newest');
 
+  // Reloads the list whenever a filter changes.
+  //
+  // The state updates deliberately happen inside promise callbacks: the React 19
+  // `react-hooks/set-state-in-effect` rule flags state written synchronously from
+  // an effect body, and the `cancelled` flag drops the response of a filter the
+  // user already moved away from.
   useEffect(() => {
-    fetchPosts();
-  }, [search, statusFilter, sortBy]);
+    let cancelled = false;
+    const params = new URLSearchParams({
+      search,
+      status: statusFilter,
+      sort: sortBy,
+    });
 
-  async function fetchPosts() {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        search,
-        status: statusFilter,
-        sort: sortBy,
+    fetch(`/api/posts?${params}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to fetch posts'))))
+      .then((data: Post[]) => {
+        if (!cancelled) setPosts(data);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) console.error('Failed to fetch posts', error);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-      const res = await fetch(`/api/posts?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPosts(data);
-      }
-    } catch (e) {
-      console.error('Failed to fetch posts', e);
-    } finally {
-      setLoading(false);
-    }
-  }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [search, statusFilter, sortBy]);
 
   async function deletePost(id: string) {
     if (!confirm('Are you sure you want to delete this post?')) return;
@@ -63,7 +66,7 @@ export default function PostsPage() {
       } else {
         alert('Failed to delete post');
       }
-    } catch (e) {
+    } catch {
       alert('An error occurred while deleting');
     }
   }

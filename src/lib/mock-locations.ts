@@ -1,5 +1,3 @@
-import React from 'react';
-
 export const MOCK_LOCATIONS = [
   {
     id: '1',

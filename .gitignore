@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the template must ship with the repository, the README setup steps need it.
+!.env.example
 
 # vercel
 .vercel

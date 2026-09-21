@@ -3,11 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PostForm from '@/components/posts/PostForm';
 import { Loader2 } from 'lucide-react';
+import type { PostRecord } from '@/types/post';
 
 export default function EditPostPage() {
   const params = useParams();
   const router = useRouter();
-  const [post, setPost] = useState<any>(null);
+  const [post, setPost] = useState<PostRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

@@ -1,7 +1,8 @@
 'use client';
 import React, { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -23,9 +24,10 @@ export default function RegisterPage() {
         const data = await res.json();
         throw new Error(data.error || 'Registration failed');
       }
-      window.location.href = '/login';
-    } catch (e: any) {
-      setError(e.message);
+      router.replace('/login');
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -90,6 +92,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-// Add a simple Link component if not imported correctly or use 'next/link'
-import Link from 'next/link';

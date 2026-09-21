@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { PostSchema } from '@/lib/validations';
 import { isZodError, zodErrorMessage } from '@/lib/api-errors';
+import { rateLimit } from '@/lib/rate-limit';
+import { invalidJsonResponse, isInvalidJsonBodyError, readJsonBody } from '@/lib/http';
+
+/** Guards the OpenRouter quota against a single abusive account. */
+const AI_RATE_LIMIT = { limit: 20, windowMs: 10 * 60 * 1000 };
+const DEFAULT_MODEL = 'google/gemini-2.0-flash-001';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,19 +16,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
+    const limit = rateLimit(`ai:${session.userId}`, AI_RATE_LIMIT);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many AI requests. Please wait a moment and try again.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+      );
+    }
+
+    const body = await readJsonBody(req);
     const validated = PostSchema.parse(body);
 
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY?.trim();
-    const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001';
+    const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL?.trim() || DEFAULT_MODEL;
 
-    console.log('--- AI Route Debug ---');
-    console.log('Model:', OPENROUTER_MODEL);
-    console.log('API Key loaded:', OPENROUTER_API_KEY ? `Yes (Starts with ${OPENROUTER_API_KEY.substring(0, 5)}...)` : 'No');
-    console.log('----------------------');
-
+    // No key material is logged: the previous debug block printed a prefix of the
+    // API key on every single request.
     if (!OPENROUTER_API_KEY) {
-      return NextResponse.json({ error: 'AI configuration missing' }, { status: 500 });
+      console.error('AI Generation Error: OPENROUTER_API_KEY is not configured.');
+      return NextResponse.json({ error: 'AI service unavailable' }, { status: 503 });
     }
 
     const prompt = `
@@ -64,32 +76,38 @@ Requirements:
       });
 
       if (!response.ok) {
-        const errData = await response.json();
+        const errData = await response.json().catch(() => null);
+        // The provider payload is logged, never echoed back: it can contain
+        // account, quota and billing details.
         console.error('OpenRouter API Error Response:', JSON.stringify(errData));
-        return NextResponse.json({ error: `AI Error: ${errData.error?.message || 'Unknown error'}` }, { status: response.status });
+        return NextResponse.json({ error: 'AI generation failed' }, { status: 502 });
       }
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content?.trim();
 
       if (!content) {
-        return NextResponse.json({ error: 'Empty AI response' }, { status: 500 });
+        return NextResponse.json({ error: 'AI generation failed' }, { status: 502 });
       }
 
       return NextResponse.json({ content }, { status: 200 });
-    } catch (fetchError: any) {
+    } catch (fetchError) {
       console.error('Fetch Error during AI Generation:', fetchError);
-      return NextResponse.json({ error: 'AI service unreachable' }, { status: 500 });
+      return NextResponse.json({ error: 'AI service unreachable' }, { status: 502 });
     }
   } catch (error) {
     console.error('AI Generation Error:', error);
+
+    if (isInvalidJsonBodyError(error)) {
+      return invalidJsonResponse();
+    }
+
     if (isZodError(error)) {
       return NextResponse.json(
         { error: zodErrorMessage(error) },
         { status: 400 }
       );
     }
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

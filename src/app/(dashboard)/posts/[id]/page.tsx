@@ -4,11 +4,12 @@ import { useParams, useRouter } from 'next/navigation';
 import PostPreview from '@/components/posts/PostPreview';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import type { PostRecord } from '@/types/post';
 
 export default function ViewPostPage() {
   const params = useParams();
   const router = useRouter();
-  const [post, setPost] = useState<any>(null);
+  const [post, setPost] = useState<PostRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,8 +27,8 @@ export default function ViewPostPage() {
         }
         const data = await res.json();
         setPost(data);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Post not found');
       } finally {
         setLoading(false);
       }

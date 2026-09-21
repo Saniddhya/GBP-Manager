@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import { getSession } from '@/lib/auth';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await getSession();
     if (!session) {
@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
     }
 
     await dbConnect();
+    // `-passwordHash` keeps the credential material out of the response body.
     const user = await User.findById(session.userId).select('-passwordHash');
 
     if (!user) {
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ user }, { status: 200 });
   } catch (error) {
+    console.error('Get Session User Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

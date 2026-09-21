@@ -80,7 +80,7 @@ export default function DashboardPage() {
           href="/posts/new"
           className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
-          <PlusCircleIcon className="w-4 h-4" />
+          <PlusCircle className="w-4 h-4" />
           Create Post
         </Link>
       </div>
@@ -90,7 +90,7 @@ export default function DashboardPage() {
         <MetricCard
           label="Total Locations"
           value={data.metrics.totalLocations}
-          icon={<MapPinIcon className="w-5 h-5" />}
+          icon={<MapPin className="w-5 h-5" />}
           color="text-blue-600"
           bgColor="bg-blue-50"
         />
@@ -179,7 +179,15 @@ export default function DashboardPage() {
   );
 }
 
-function MetricCard({ label, value, icon, color, bgColor }: any) {
+interface MetricCardProps {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  color: string;
+  bgColor: string;
+}
+
+function MetricCard({ label, value, icon, color, bgColor }: MetricCardProps) {
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
       <div className="flex items-center gap-4">
@@ -209,10 +217,3 @@ function DashboardSkeleton() {
   );
 }
 
-// Helper icons since I missed some imports
-function MapPinIcon(props: any) {
-  return <MapPin {...props} />;
-}
-function PlusCircleIcon(props: any) {
-  return <PlusCircle {...props} />;
-}

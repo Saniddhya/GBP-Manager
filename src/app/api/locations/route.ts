@@ -2,17 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Location from '@/models/Location';
 import { getSession } from '@/lib/auth';
-import { z } from 'zod';
+// The schema lives next to the other Zod contracts so the API surface stays in one place.
+import { LocationSchema } from '@/lib/validations';
 import { isZodError, zodErrorMessage } from '@/lib/api-errors';
+import { invalidJsonResponse, isInvalidJsonBodyError, readJsonBody } from '@/lib/http';
 
-const LocationSchema = z.object({
-  businessName: z.string().min(1, 'Business name is required'),
-  address: z.string().min(1, 'Address is required'),
-  category: z.string().min(1, 'Category is required'),
-  city: z.string().min(1, 'City is required'),
-  phone: z.string().optional(),
-  website: z.string().url('Invalid website URL').optional().or(z.literal('')),
-});
 
 export async function GET() {
   try {
@@ -38,7 +32,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const validatedData = LocationSchema.parse(body);
 
     await dbConnect();
@@ -50,6 +44,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(location, { status: 201 });
   } catch (error) {
     console.error('Create Location Error:', error);
+
+    if (isInvalidJsonBodyError(error)) {
+      return invalidJsonResponse();
+    }
+
     if (isZodError(error)) {
       return NextResponse.json({ error: zodErrorMessage(error) }, { status: 400 });
     }

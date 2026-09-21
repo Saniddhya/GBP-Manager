@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || '';
+type MongooseConnection = typeof mongoose;
 
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env');
+interface MongooseCache {
+  conn: MongooseConnection | null;
+  promise: Promise<MongooseConnection> | null;
 }
 
 /**
@@ -11,37 +12,52 @@ if (!MONGODB_URI) {
  * in development. This prevents connections growing exponentially
  * during API Route usage.
  */
-let cached = (global as any).mongoose;
+const globalForMongoose = globalThis as typeof globalThis & { __gbpMongooseCache?: MongooseCache };
 
-if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
+const cached: MongooseCache = globalForMongoose.__gbpMongooseCache ?? { conn: null, promise: null };
+globalForMongoose.__gbpMongooseCache = cached;
+
+/**
+ * Resolved lazily, on the first query, instead of at module scope.
+ *
+ * The previous `throw` at import time fired while `next build` collected the
+ * API routes, so a missing env var produced a build failure rather than a clear
+ * runtime error. Reading the URI here also avoids interpolating the connection
+ * string (which embeds the database password) into the logs.
+ */
+function getMongoUri(): string {
+  const uri = process.env.MONGODB_URI?.trim();
+
+  if (!uri) {
+    throw new Error(
+      'MONGODB_URI is not set. Copy .env.example to .env and add your MongoDB connection string.'
+    );
+  }
+
+  return uri;
 }
 
-async function dbConnect() {
+async function dbConnect(): Promise<MongooseConnection> {
   if (cached.conn) {
     return cached.conn;
   }
 
-  console.log('Connecting to MongoDB with URI:', MONGODB_URI.replace(/:([^@]*)@/, ':****@'));
-
   if (!cached.promise) {
-    const opts = {
+    cached.promise = mongoose.connect(getMongoUri(), {
       bufferCommands: false,
-    };
-
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
     });
   }
 
   try {
     cached.conn = await cached.promise;
-  } catch (e) {
+  } catch (error) {
+    // Allow the next request to retry instead of caching a rejected promise.
     cached.promise = null;
-    throw e;
+    throw error;
   }
 
   return cached.conn;
 }
 
 export default dbConnect;
+

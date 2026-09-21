@@ -30,6 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# curl cookie jar (contains auth tokens)
+cookies.txt
+
 # env files (can opt-in for committing if needed)
 .env*
 # ...but the template must ship with the repository, the README setup steps need it.
